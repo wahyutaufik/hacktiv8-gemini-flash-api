@@ -35,22 +35,25 @@ app.post("/generate-text", async (req, res) => {
 
 app.post("/generate-from-image", upload.single("image"), async (req, res) => {
   const { prompt } = req.body;
+  const filePath = req.file.path;
+  const buffer = await fs.readFile(filePath);
+  const base64Image = buffer.toString("base64");
+  const mimeType = req.file.mimetype;
+
   try {
-    const buffer = await fs.readFile(req.file.path);
-    const base64Image = buffer.toString("base64");
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: base64Image,
+      },
+    };
 
     const result = await genAI.models.generateContent({
       model: MODEL,
       contents: [
         {
-          role: "user",
           parts: [
-            {
-              inlineData: {
-                mimeType: req.file.mimetype,
-                data: base64Image,
-              },
-            },
+            imagePart,
             {
               text: prompt,
             },
@@ -65,3 +68,43 @@ app.post("/generate-from-image", upload.single("image"), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.post(
+  "/generate-from-document",
+  upload.single("document"),
+  async (req, res) => {
+    const prompt = "Analyze this document:";
+    const filePath = req.file.path;
+    const buffer = await fs.readFile(filePath);
+    const base64Data = buffer.toString("base64");
+    const mimeType = req.file.mimetype;
+
+    try {
+      const documentPart = {
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
+      };
+
+      const result = await genAI.models.generateContent({
+        model: MODEL,
+        contents: [
+          {
+            parts: [
+              documentPart,
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      });
+
+      res.json({ output: result.text });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
