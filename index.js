@@ -20,6 +20,29 @@ app.listen(PORT, () => {
   console.log(`Gemini API server is running at http://localhost:${PORT}`);
 });
 
+const imageToGenerativePart = (filePath, mimeType) => ({
+  inlineData: {
+    data: fs.readFileSync(filePath).toString("base64"),
+    mimeType,
+  },
+});
+
+const generateContentWithFile = (filePart, prompt) => {
+  return genAI.models.generateContent({
+    model: MODEL,
+    contents: [
+      {
+        parts: [
+          filePart,
+          {
+            text: prompt,
+          },
+        ],
+      },
+    ],
+  });
+};
+
 app.post("/generate-text", async (req, res) => {
   const { prompt } = req.body;
 
@@ -37,39 +60,19 @@ app.post("/generate-text", async (req, res) => {
 
 app.post("/generate-from-image", upload.single("image"), async (req, res) => {
   const { prompt } = req.body;
-  const filePath = req.file.path;
-  const buffer = fs.readFileSync(filePath);
-  const base64Image = buffer.toString("base64");
-  const mimeType = req.file.mimetype;
+  const { path, mimetype } = req.file;
 
   try {
-    const imagePart = {
-      inlineData: {
-        mimeType,
-        data: base64Image,
-      },
-    };
+    const imagePart = imageToGenerativePart(path, mimetype);
 
-    const result = await genAI.models.generateContent({
-      model: MODEL,
-      contents: [
-        {
-          parts: [
-            imagePart,
-            {
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+    const result = await generateContentWithFile(imagePart, prompt);
 
     res.json({ output: result.text });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
   } finally {
-    fs.unlinkSync(filePath);
+    fs.unlinkSync(path);
   }
 });
 
@@ -78,77 +81,37 @@ app.post(
   upload.single("document"),
   async (req, res) => {
     const prompt = "Analyze this document:";
-    const filePath = req.file.path;
-    const buffer = fs.readFileSync(filePath);
-    const base64Data = buffer.toString("base64");
-    const mimeType = req.file.mimetype;
+    const { path, mimetype } = req.file;
 
     try {
-      const documentPart = {
-        inlineData: {
-          mimeType,
-          data: base64Data,
-        },
-      };
+      const documentPart = imageToGenerativePart(path, mimetype);
 
-      const result = await genAI.models.generateContent({
-        model: MODEL,
-        contents: [
-          {
-            parts: [
-              documentPart,
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-      });
+      const result = await generateContentWithFile(documentPart, prompt);
 
       res.json({ output: result.text });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: error.message });
     } finally {
-      fs.unlinkSync(filePath);
+      fs.unlinkSync(path);
     }
   }
 );
 
 app.post("/generate-from-audio", upload.single("audio"), async (req, res) => {
   const prompt = "Transcribe or analyze the following audio:";
-  const filePath = req.file.path;
-  const buffer = fs.readFileSync(filePath);
-  const base64Audio = buffer.toString("base64");
-  const mimeType = req.file.mimetype;
+  const { path, mimetype } = req.file;
 
   try {
-    const audioPart = {
-      inlineData: {
-        mimeType,
-        data: base64Audio,
-      },
-    };
+    const audioPart = imageToGenerativePart(path, mimetype);
 
-    const result = await genAI.models.generateContent({
-      model: MODEL,
-      contents: [
-        {
-          parts: [
-            audioPart,
-            {
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+    const result = await generateContentWithFile(audioPart, prompt);
 
     res.json({ output: result.text });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
   } finally {
-    fs.unlinkSync(filePath);
+    fs.unlinkSync(path);
   }
 });
