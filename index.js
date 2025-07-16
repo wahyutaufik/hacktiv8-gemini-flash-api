@@ -1,18 +1,20 @@
-import express from "express";
-import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
+import dotenv from "dotenv";
+import express from "express";
+import fs from "fs";
 import multer from "multer";
-import fs from "fs/promises";
 
 const PORT = 3000;
 const MODEL = "gemini-2.5-flash";
+const DIR = "uploads/";
+
 const app = express();
 
 dotenv.config();
 app.use(express.json());
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: DIR });
 
 app.listen(PORT, () => {
   console.log(`Gemini API server is running at http://localhost:${PORT}`);
@@ -36,7 +38,7 @@ app.post("/generate-text", async (req, res) => {
 app.post("/generate-from-image", upload.single("image"), async (req, res) => {
   const { prompt } = req.body;
   const filePath = req.file.path;
-  const buffer = await fs.readFile(filePath);
+  const buffer = fs.readFileSync(filePath);
   const base64Image = buffer.toString("base64");
   const mimeType = req.file.mimetype;
 
@@ -66,6 +68,8 @@ app.post("/generate-from-image", upload.single("image"), async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
+  } finally {
+    fs.unlinkSync(filePath);
   }
 });
 
@@ -75,7 +79,7 @@ app.post(
   async (req, res) => {
     const prompt = "Analyze this document:";
     const filePath = req.file.path;
-    const buffer = await fs.readFile(filePath);
+    const buffer = fs.readFileSync(filePath);
     const base64Data = buffer.toString("base64");
     const mimeType = req.file.mimetype;
 
@@ -105,6 +109,8 @@ app.post(
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: error.message });
+    } finally {
+      fs.unlinkSync(filePath);
     }
   }
 );
@@ -112,7 +118,7 @@ app.post(
 app.post("/generate-from-audio", upload.single("audio"), async (req, res) => {
   const prompt = "Transcribe or analyze the following audio:";
   const filePath = req.file.path;
-  const buffer = await fs.readFile(filePath);
+  const buffer = fs.readFileSync(filePath);
   const base64Audio = buffer.toString("base64");
   const mimeType = req.file.mimetype;
 
@@ -142,5 +148,7 @@ app.post("/generate-from-audio", upload.single("audio"), async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
+  } finally {
+    fs.unlinkSync(filePath);
   }
 });
