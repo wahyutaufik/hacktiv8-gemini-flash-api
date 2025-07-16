@@ -108,3 +108,39 @@ app.post(
     }
   }
 );
+
+app.post("/generate-from-audio", upload.single("audio"), async (req, res) => {
+  const prompt = "Transcribe or analyze the following audio:";
+  const filePath = req.file.path;
+  const buffer = await fs.readFile(filePath);
+  const base64Audio = buffer.toString("base64");
+  const mimeType = req.file.mimetype;
+
+  try {
+    const audioPart = {
+      inlineData: {
+        mimeType,
+        data: base64Audio,
+      },
+    };
+
+    const result = await genAI.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          parts: [
+            audioPart,
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    });
+
+    res.json({ output: result.text });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
